@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Killington 2026 - Spartan Ultra 50K Training Tracker">
+    <meta name="theme-color" content="#ea580c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Killington Trainer">
+    
+    <title>⚡ Killington 2026 Trainer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #fef3c7 0%, #fecaca 100%);
+            min-height: 100vh;
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(to right, #ea580c, #dc2626);
+            color: white;
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px rgba(234, 88, 12, 0.3);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #fed7aa;
+        }
+
+        .profile-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .profile-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .profile-row label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #4b5563;
+            min-width: 90px;
+        }
+
+        .profile-row input,
+        .profile-row select {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .btn-secondary {
+            background: #1f2937;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-light {
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .supabase-setup {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #d1d5db;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .sync-status {
+            font-size: 12px;
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .sync-status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .sync-status.warning {
+            background: #fef08a;
+            color: #854d0e;
+        }
+
+        .sync-status.info {
+            background: #dbeafe;
+            color: #1e3a8a;
+        }
+
+        .setup-hint {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        .week-nav {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            margin-bottom: 24px;
+            padding-bottom: 8px;
+        }
+
+        .week-btn {
+            padding: 8px 16px;
+            border: 2px solid #d1d5db;
+            background: white;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .week-btn.active {
+            background: #ea580c;
+            color: white;
+            border-color: #ea580c;
+        }
+
+        .session {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .session.completed {
+            background: #dcfce7;
+            border-color: #22c55e;
+        }
+
+        .session.expanded {
+            background: #fed7aa;
+            border-color: #ea580c;
+        }
+
+        .session-header {
+            padding: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .session-info {
+            flex: 1;
+        }
+
+        .session-day {
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .session-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ea580c;
+            margin-bottom: 4px;
+        }
+
+        .session-details {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .form-section {
+            padding: 16px;
+            background: #f3f4f6;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 4px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-success {
+            background: #22c55e;
+            color: white;
+            padding: 8px 12px;
+            width: auto;
+            font-size: 12px;
+        }
+
+        .btn-small-plus {
+            background: #22c55e;
+            color: white;
+            padding: 8px 12px;
+            width: auto;
+            font-size: 12px;
+        }
+
+        .feedback {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .feedback.success {
+            background: #dcfce7;
+            color: #166534;
+            border-left: 3px solid #22c55e;
+        }
+
+        .feedback.warning {
+            background: #fef08a;
+            color: #854d0e;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .exercise-item {
+            background: white;
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .exercise-item.stairmaster {
+            background: #fef08a;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .exercise-header {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .exercise-reps {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .exercise-inputs {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .exercise-inputs input {
+            flex: 1;
+            padding: 8px;
+            font-size: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+
+        .exercise-inputs button {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        .stat-card.yellow {
+            border-left-color: #f59e0b;
+        }
+
+        .stat-card.yellow .stat-value {
+            color: #f59e0b;
+        }
+
+        .footer {
+            background: linear-gradient(to right, #ea580c, #dc2626);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .footer h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .footer p {
+            font-size: 12px;
+            color: #fed7aa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ KILLINGTON 2026</h1>
+            <p>Spartan Ultra 50K – Training Tracker</p>
+            <div class="header-stats">
+                <div>Woche <strong id="currentWeekDisplay">1</strong>/20</div>
+                <div>✅ <strong id="completedCount">0</strong> Workouts</div>
+            </div>
+        </div>
+
+            <div class="profile-panel">
+                <div class="profile-row" id="authUserRow"></div>
+                <div class="profile-row">
+                    <label for="authEmail">Login</label>
+                    <input id="authEmail" type="email" placeholder="email@domain.com">
+                    <input id="authPassword" type="password" placeholder="Passwort">
+                </div>
+                <div class="profile-row">
+                    <button class="btn-secondary" onclick="signUpWithPassword()">Registrieren</button>
+                    <button class="btn-secondary" onclick="signInWithPassword()">Einloggen</button>
+                    <button class="btn-light" onclick="signOutUser()">Logout</button>
+                </div>
+                <div class="profile-row">
+                    <button class="btn-light" onclick="toggleSupabaseSetup()">Supabase Setup</button>
+                    <button class="btn-secondary" onclick="loadFromSupabase()">Cloud laden</button>
+                    <button class="btn-secondary" onclick="saveToSupabase()">Cloud speichern</button>
+                </div>
+                <div id="supabaseSetup" class="supabase-setup hidden">
+                    <div class="profile-row">
+                        <label for="supabaseUrl">URL</label>
+                        <input id="supabaseUrl" type="text" placeholder="https://xyzcompany.supabase.co">
+                    </div>
+                    <div class="profile-row">
+                        <label for="supabaseKey">Anon Key</label>
+                        <input id="supabaseKey" type="password" placeholder="eyJhbGciOi...">
+                    </div>
+                    <div class="profile-row">
+                        <label for="autoSyncToggle">Auto Sync</label>
+                        <input id="autoSyncToggle" type="checkbox" style="flex: 0 0 auto; width: 16px; height: 16px;">
+                    </div>
+                    <div class="profile-row">
+                        <button class="btn-secondary" onclick="saveSupabaseConfig()">Konfiguration speichern</button>
+                    </div>
+                    <div class="setup-hint">
+                        Führe zuerst die SQL aus der Datei supabase_setup.sql in Supabase aus.<br>
+                        Danach URL + anon key speichern und mit Benutzer-Login arbeiten.
+                    </div>
+                </div>
+                <div id="syncStatus" class="sync-status hidden"></div>
+            </div>
+
+        <div class="week-nav" id="weekNav"></div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">🏃 Lauf-Workouts</div>
+                <div class="stat-value" id="cardioCount">0</div>
+            </div>
+            <div class="stat-card yellow">
+                <div class="stat-label">💪 Kraft-Sessions</div>
+                <div class="stat-value" id="kraftCount">0</div>
+            </div>
+        </div>
+
+        <div id="sessionsContainer"></div>
+
+        <div class="footer">
+            <h3>🔥 DU SCHAFFST DAS!</h3>
+            <p>Jedes Workout zählt. Killington wartet 🏔️</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const STORAGE_PREFIX = 'killingtonAppState';
+        const SUPABASE_SETTINGS_KEY = 'killingtonSupabaseSettings';
+
+        const defaultAppState = {
+            currentWeek: 1,
+            currentDay: null,
+            workoutHistory: {},
+            cardioInput: { zone: 'Zone 2', duration: '', avgHR: '', distance: '' },
+            startWeights: {
+                backSquat: 225,
+                romanianDeadlift: 185,
+                bullgarianSplit: 40,
+                turkishGetup: 53,
+                pullups: 0,
+                dips: 0,
+                singleArmRow: 55,
+                farmerCarry: 70,
+                conventionalDeadlift: 275,
+                overheadPress: 115,
+                walkingLunges: 40,
+                kettlebellSwings: 53,
+            },
+            kraftExerciseInputs: {}
+        };
+
+        const defaultSupabaseSettings = {
+            url: '',
+            anonKey: '',
+            autoSync: false,
+        };
+
+        let appState = createDefaultState();
+        let supabaseSettings = { ...defaultSupabaseSettings };
+        let supabaseClient = null;
+        let currentAuthUser = null;
+        let authListenerInitialized = false;
+
+        const hrZones = {
+            'Zone 2': { min: 105, max: 135, target: '120' },
+            'Zone 3': { min: 135, max: 155, target: '145' },
+            'Zone 4': { min: 155, max: 175, target: '165' },
+            'easy': { min: 100, max: 140, target: '120' },
+        };
+
+        const trainingPlans = {
+            1: [
+                { id: 'w1d0', day: 'Di 28.04', session: 'Langer Lauf', type: 'cardio', details: '8–10 km Zone 2' },
+                { id: 'w1d1', day: 'Mi 29.04', session: 'Kraft B + Stairmaster', type: 'kraft', kraft: 'B', hasStairmaster: true, details: '25–35 Min' },
+                { id: 'w1d2', day: 'Do 30.04', session: 'Recovery Run', type: 'cardio', details: '5–6 km easy' },
+                { id: 'w1d3', day: 'Fr 01.05', session: 'Kraft C', type: 'kraft', kraft: 'C', details: 'Full Body OCR' },
+                { id: 'w1d4', day: 'Sa 02.05', session: 'Easy Run', type: 'cardio', details: '6–8 km Zone 2' },
+                { id: 'w1d5', day: 'So 03.05', session: 'Ruhetag', type: 'rest', details: '🔄 Recovery' },
+                { id: 'w1d6', day: 'Mo 04.05', session: 'Kraft A + Easy', type: 'kraft', kraft: 'A', details: '5–7 km' },
+            ],
+            2: [
+                { id: 'w2d0', day: 'Di', session: 'Langer Lauf', type: 'cardio', details: '10–12 km' },
+                { id: 'w2d1', day: 'Mi', session: 'Kraft B + Hill', type: 'kraft', kraft: 'B', hasStairmaster: true, details: '30–40 Min' },
+                { id: 'w2d2', day: 'Do', session: 'Recovery', type: 'cardio', details: '5–6 km' },
+                { id: 'w2d3', day: 'Fr', session: 'Kraft C', type: 'kraft', kraft: 'C', details: 'Full Body' },
+                { id: 'w2d4', day: 'Sa', session: 'Easy', type: 'cardio', details: '7–9 km' },
+                { id: 'w2d5', day: 'So', session: 'Ruhetag', type: 'rest', details: '🔄' },
+                { id: 'w2d6', day: 'Mo', session: 'Kraft A + Easy', type: 'kraft', kraft: 'A', details: '6–8 km' },
+            ],
+        };
+
+        const kraftExercises = {
+            A: [
+                { name: 'Back Squat', reps: '4×8', weightKey: 'backSquat', unit: 'lbs' },
+                { name: 'Romanian Deadlift', reps: '4×8', weightKey: 'romanianDeadlift', unit: 'lbs' },
+                { name: 'Bulgarian Split Squats', reps: '2×8', weightKey: 'bullgarianSplit', unit: 'lbs' },
+                { name: 'Turkish Get-ups', reps: '3×5', weightKey: 'turkishGetup', unit: 'lbs' },
+                { name: 'Plank', reps: '3×45-60s', weightKey: null, unit: 'sec' },
+            ],
+            B: [
+                { name: 'Pull-ups', reps: '5× max', weightKey: 'pullups', unit: 'reps' },
+                { name: 'Dips', reps: '4× max', weightKey: 'dips', unit: 'reps' },
+                { name: 'Single-Arm Row', reps: '4×8', weightKey: 'singleArmRow', unit: 'lbs' },
+                { name: 'Farmer Carry', reps: '5×50m', weightKey: 'farmerCarry', unit: 'lbs' },
+                { name: 'Face Pulls', reps: '3×15', weightKey: null, unit: 'reps' },
+            ],
+            C: [
+                { name: 'Conventional Deadlift', reps: '4×6', weightKey: 'conventionalDeadlift', unit: 'lbs' },
+                { name: 'Overhead Press', reps: '4×8', weightKey: 'overheadPress', unit: 'lbs' },
+                { name: 'Walking Lunges', reps: '3×10', weightKey: 'walkingLunges', unit: 'lbs' },
+                { name: 'KB Swings', reps: '4×25', weightKey: 'kettlebellSwings', unit: 'lbs' },
+                { name: 'Burpee + Pull-up', reps: '3×8', weightKey: null, unit: 'reps' },
+            ],
+        };
+
+        function createDefaultState() {
+            return JSON.parse(JSON.stringify(defaultAppState));
+        }
+
+        function mergeWithDefaultState(data) {
+            const defaults = createDefaultState();
+            return {
+                ...defaults,
+                ...data,
+                cardioInput: {
+                    ...defaults.cardioInput,
+                    ...(data?.cardioInput || {}),
+                },
+                startWeights: {
+                    ...defaults.startWeights,
+                    ...(data?.startWeights || {}),
+                },
+                workoutHistory: data?.workoutHistory || {},
+                kraftExerciseInputs: data?.kraftExerciseInputs || {},
+            };
+        }
+
+        function getStateStorageKey(ownerId) {
+            return `${STORAGE_PREFIX}:${ownerId}`;
+        }
+
+        function getCurrentOwnerId() {
+            return currentAuthUser?.id || 'guest';
+        }
+
+        function loadSupabaseSettings() {
+            const raw = localStorage.getItem(SUPABASE_SETTINGS_KEY);
+            if (!raw) return;
+            try {
+                supabaseSettings = {
+                    ...defaultSupabaseSettings,
+                    ...JSON.parse(raw),
+                };
+            } catch (err) {
+                supabaseSettings = { ...defaultSupabaseSettings };
+            }
+        }
+
+        function initSupabaseClient() {
+            if (!supabaseSettings.url || !supabaseSettings.anonKey) {
+                supabaseClient = null;
+                return;
+            }
+
+            if (!window.supabase?.createClient) {
+                supabaseClient = null;
+                showSyncStatus('Supabase Library konnte nicht geladen werden.', 'warning');
+                return;
+            }
+
+            try {
+                supabaseClient = window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey);
+            } catch (err) {
+                supabaseClient = null;
+                showSyncStatus('Supabase Konfiguration ist ungueltig.', 'warning');
+            }
+        }
+
+        function loadDataForOwner(ownerId) {
+            const saved = localStorage.getItem(getStateStorageKey(ownerId));
+            if (!saved) {
+                appState = createDefaultState();
+                return;
+            }
+            try {
+                appState = mergeWithDefaultState(JSON.parse(saved));
+            } catch (err) {
+                appState = createDefaultState();
+            }
+        }
+
+        function saveData(options = {}) {
+            const { skipSync = false } = options;
+            localStorage.setItem(getStateStorageKey(getCurrentOwnerId()), JSON.stringify(appState));
+            if (!skipSync && supabaseSettings.autoSync && supabaseClient && currentAuthUser) {
+                saveToSupabase(true);
+            }
+        }
+
+        async function initApp() {
+            loadSupabaseSettings();
+            initSupabaseClient();
+            loadDataForOwner('guest');
+            if (supabaseClient) {
+                await initAuth();
+            }
+            renderUI();
+        }
+
+        initApp();
+
+        function renderUI() {
+            renderAuthControls();
+            renderWeekNav();
+            renderSessions();
+            updateStats();
+        }
+
+        function renderAuthControls() {
+            const authUserRow = document.getElementById('authUserRow');
+            const urlInput = document.getElementById('supabaseUrl');
+            const keyInput = document.getElementById('supabaseKey');
+            const autoSync = document.getElementById('autoSyncToggle');
+
+            if (!authUserRow || !urlInput || !keyInput || !autoSync) return;
+
+            const displayName = currentAuthUser?.user_metadata?.full_name || currentAuthUser?.email || 'Nicht eingeloggt';
+            authUserRow.innerHTML = `<strong>Aktiver Nutzer:</strong> ${displayName}`;
+
+            urlInput.value = supabaseSettings.url || '';
+            keyInput.value = supabaseSettings.anonKey || '';
+            autoSync.checked = !!supabaseSettings.autoSync;
+        }
+
+        async function initAuth() {
+            const { data, error } = await supabaseClient.auth.getSession();
+            if (error) {
+                showSyncStatus(`Session konnte nicht geladen werden: ${error.message}`, 'warning');
+                return;
+            }
+
+            currentAuthUser = data?.session?.user || null;
+            if (currentAuthUser) {
+                loadDataForOwner(currentAuthUser.id);
+                await loadFromSupabase(true);
+            }
+
+            if (authListenerInitialized) {
+                return;
+            }
+
+            supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+                currentAuthUser = session?.user || null;
+
+                if (currentAuthUser) {
+                    loadDataForOwner(currentAuthUser.id);
+                    await loadFromSupabase(true);
+                    showSyncStatus('Login erfolgreich.', 'success');
+                } else {
+                    loadDataForOwner('guest');
+                    showSyncStatus('Ausgeloggt. Lokaler Gastmodus aktiv.', 'info');
+                }
+
+                renderUI();
+            });
+
+            authListenerInitialized = true;
+        }
+
+        async function signUpWithPassword() {
+            if (!supabaseClient) {
+                showSyncStatus('Bitte zuerst Supabase Setup speichern.', 'warning');
+                return;
+            }
+
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+
+            if (!email || !password) {
+                showSyncStatus('Bitte Email und Passwort eingeben.', 'warning');
+                return;
+            }
+
+            const { error } = await supabaseClient.auth.signUp({
+                email,
+                password,
+            });
+
+            if (error) {
+                showSyncStatus(`Registrierung fehlgeschlagen: ${error.message}`, 'warning');
+                return;
+            }
+
+            showSyncStatus('Registrierung erfolgreich. Falls erforderlich, Email bestaetigen und dann einloggen.', 'success');
+        }
+
+        async function signInWithPassword() {
+            if (!supabaseClient) {
+                showSyncStatus('Bitte zuerst Supabase Setup speichern.', 'warning');
+                return;
+            }
+
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+
+            if (!email || !password) {
+                showSyncStatus('Bitte Email und Passwort eingeben.', 'warning');
+                return;
+            }
+
+            const { error } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) {
+                showSyncStatus(`Login fehlgeschlagen: ${error.message}`, 'warning');
+                return;
+            }
+
+            showSyncStatus('Login angefragt.', 'info');
+        }
+
+        async function signOutUser() {
+            if (!supabaseClient) {
+                currentAuthUser = null;
+                loadDataForOwner('guest');
+                renderUI();
+                return;
+            }
+
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) {
+                showSyncStatus(`Logout fehlgeschlagen: ${error.message}`, 'warning');
+                return;
+            }
+        }
+
+        function toggleSupabaseSetup() {
+            const section = document.getElementById('supabaseSetup');
+            section.classList.toggle('hidden');
+        }
+
+        function saveSupabaseConfig() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const anonKey = document.getElementById('supabaseKey').value.trim();
+            const autoSync = document.getElementById('autoSyncToggle').checked;
+
+            supabaseSettings = { url, anonKey, autoSync };
+            localStorage.setItem(SUPABASE_SETTINGS_KEY, JSON.stringify(supabaseSettings));
+            initSupabaseClient();
+
+            if (supabaseClient) {
+                showSyncStatus('Supabase ist verbunden.', 'success');
+                initAuth();
+            } else {
+                showSyncStatus('Konfiguration gespeichert. Verbindung fehlt oder ungueltig.', 'warning');
+            }
+        }
+
+        async function saveToSupabase(silent = false) {
+            if (!supabaseClient) {
+                if (!silent) showSyncStatus('Bitte zuerst Supabase Setup speichern.', 'warning');
+                return;
+            }
+
+            if (!currentAuthUser) {
+                if (!silent) showSyncStatus('Bitte einloggen, um in die Cloud zu speichern.', 'warning');
+                return;
+            }
+
+            const payload = {
+                user_id: currentAuthUser.id,
+                state: appState,
+                updated_at: new Date().toISOString(),
+            };
+
+            const { error } = await supabaseClient
+                .from('training_states')
+                .upsert(payload, { onConflict: 'user_id' });
+
+            if (error) {
+                if (!silent) showSyncStatus(`Cloud Save fehlgeschlagen: ${error.message}`, 'warning');
+                return;
+            }
+
+            if (!silent) showSyncStatus('Plan in der Cloud gespeichert.', 'success');
+        }
+
+        async function loadFromSupabase(silent = false) {
+            if (!supabaseClient) {
+                if (!silent) showSyncStatus('Bitte zuerst Supabase Setup speichern.', 'warning');
+                return;
+            }
+
+            if (!currentAuthUser) {
+                if (!silent) showSyncStatus('Bitte einloggen, um Cloud-Daten zu laden.', 'warning');
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('training_states')
+                .select('state')
+                .eq('user_id', currentAuthUser.id)
+                .maybeSingle();
+
+            if (error) {
+                if (!silent) showSyncStatus(`Cloud Load fehlgeschlagen: ${error.message}`, 'warning');
+                return;
+            }
+
+            if (!data?.state) {
+                if (!silent) showSyncStatus('Kein Cloud-Plan fuer dieses Profil gefunden.', 'info');
+                return;
+            }
+
+            appState = mergeWithDefaultState(data.state);
+            saveData({ skipSync: true });
+            renderUI();
+            if (!silent) showSyncStatus('Plan aus der Cloud geladen.', 'success');
+        }
+
+        function showSyncStatus(message, type = 'info') {
+            const el = document.getElementById('syncStatus');
+            if (!el) return;
+            el.className = `sync-status ${type}`;
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+
+        function renderWeekNav() {
+            const nav = document.getElementById('weekNav');
+            nav.innerHTML = '';
+            for (let i = 1; i <= 6; i++) {
+                const btn = document.createElement('button');
+                btn.className = `week-btn ${i === appState.currentWeek ? 'active' : ''}`;
+                btn.textContent = `W${i}`;
+                btn.onclick = () => setWeek(i);
+                nav.appendChild(btn);
+            }
+            document.getElementById('currentWeekDisplay').textContent = appState.currentWeek;
+        }
+
+        function setWeek(week) {
+            appState.currentWeek = week;
+            appState.currentDay = null;
+            saveData();
+            renderUI();
+        }
+
+        function renderSessions() {
+            const container = document.getElementById('sessionsContainer');
+            const plan = trainingPlans[appState.currentWeek] || trainingPlans[2];
+            
+            container.innerHTML = '';
+            plan.forEach(session => {
+                const key = `${appState.currentWeek}-${session.id}`;
+                const kraftKey = `${appState.currentWeek}-${session.id}-kraft`;
+                const data = session.type === 'kraft'
+                    ? appState.workoutHistory[kraftKey]
+                    : appState.workoutHistory[key];
+                const isCompleted = data?.completed;
+                const isExpanded = appState.currentDay === session.id;
+
+                const sessionEl = document.createElement('div');
+                sessionEl.className = `session ${isCompleted ? 'completed' : ''} ${isExpanded ? 'expanded' : ''}`;
+                
+                let sessionHTML = `
+                    <div class="session-header" onclick="toggleSession('${session.id}')">
+                        <div class="session-info">
+                            <div class="session-day">${session.day}</div>
+                            <div class="session-name">${session.session}</div>
+                            <div class="session-details">${session.details}</div>
+                            ${isCompleted && data.type === 'cardio' ? `
+                                <div style="font-size: 11px; background: #dbeafe; border-left: 3px solid #3b82f6; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
+                                    📊 ${data.distance} km in ${data.duration} min • ❤️ ${data.avgHR} bpm
+                                </div>
+                            ` : ''}
+                            ${isCompleted && data.type === 'kraft' && Array.isArray(data) ? `
+                                <div style="font-size: 11px; background: #fef08a; border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
+                                    ✅ ${data.length} Übungen abgeschlossen
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div style="font-size: 20px;">${isCompleted ? '✅' : '⭕'}</div>
+                    </div>
+                `;
+
+                if (isExpanded) {
+                    if (session.type === 'cardio') {
+                        sessionHTML += renderCardioForm(session);
+                    } else if (session.type === 'kraft') {
+                        sessionHTML += renderKraftForm(session);
+                    }
+                }
+
+                sessionEl.innerHTML = sessionHTML;
+                container.appendChild(sessionEl);
+            });
+        }
+
+        function renderCardioForm(session) {
+            const feedback = getCardioFeedback(
+                appState.cardioInput.zone,
+                parseFloat(appState.cardioInput.avgHR),
+                parseFloat(appState.cardioInput.distance),
+                parseFloat(appState.cardioInput.duration)
+            );
+
+            return `
+                <div class="form-section">
+                    <h4 style="font-weight: bold; margin-bottom: 12px;">📍 Cardio Tracking</h4>
+                    
+                    <div class="form-group">
+                        <label>Zone</label>
+                        <select onchange="updateCardioInput('zone', this.value)">
+                            <option value="Zone 2" ${appState.cardioInput.zone === 'Zone 2' ? 'selected' : ''}>Zone 2</option>
+                            <option value="Zone 3" ${appState.cardioInput.zone === 'Zone 3' ? 'selected' : ''}>Zone 3</option>
+                            <option value="Zone 4" ${appState.cardioInput.zone === 'Zone 4' ? 'selected' : ''}>Zone 4</option>
+                            <option value="easy" ${appState.cardioInput.zone === 'easy' ? 'selected' : ''}>Easy</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Distanz (km)</label>
+                            <input type="number" step="0.1" placeholder="8.5" value="${appState.cardioInput.distance}" onchange="updateCardioInput('distance', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>Zeit (min)</label>
+                            <input type="number" step="1" placeholder="65" value="${appState.cardioInput.duration}" onchange="updateCardioInput('duration', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>Ø HR (bpm)</label>
+                            <input type="number" step="1" placeholder="125" value="${appState.cardioInput.avgHR}" onchange="updateCardioInput('avgHR', this.value)">
+                        </div>
+                    </div>
+
+                    ${feedback ? feedback.map(fb => `
+                        <div class="feedback ${fb.type}">
+                            <div style="font-weight: bold;">${fb.text}</div>
+                            <div style="font-size: 11px; opacity: 0.9;">${fb.detail}</div>
+                        </div>
+                    `).join('') : ''}
+
+                    <button class="btn btn-primary" onclick="saveCardioWorkout()">✅ Run speichern</button>
+                </div>
+            `;
+        }
+
+        function renderKraftForm(session) {
+            const exercises = kraftExercises[session.kraft];
+            
+            let html = `
+                <div class="form-section">
+                    <h4 style="font-weight: bold; margin-bottom: 12px;">💪 Kraft ${session.kraft}</h4>
+            `;
+
+            // Stairmaster
+            if (session.hasStairmaster) {
+                html += `
+                    <div class="exercise-item stairmaster">
+                        <div class="exercise-header">🏔️ Stairmaster / Hill</div>
+                        <div class="exercise-reps">${session.details.includes('Stairmaster') ? '25–35 Min' : '30–40 Min'}</div>
+                        <div class="exercise-inputs">
+                            <input type="number" placeholder="Minuten" value="${appState.kraftExerciseInputs['Stairmaster']?.duration || ''}" onchange="updateKraftInput('Stairmaster', 'duration', this.value)">
+                            <button class="btn-success" onclick="saveKraftExercise('Stairmaster')">✅</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Normal exercises
+            html += exercises.map(ex => `
+                        <div class="exercise-item">
+                            <div class="exercise-header">${ex.name}</div>
+                            <div class="exercise-reps">${ex.reps}${ex.weightKey ? ` • Vorschlag: ${appState.startWeights[ex.weightKey]} ${ex.unit}` : ''}</div>
+                            ${renderExerciseSetInputs(ex)}
+                        </div>
+                    `).join('') + `
+                </div>
+            `;
+            
+            return html;
+        }
+
+        function getRecommendedSetCount(repsText) {
+            const match = String(repsText || '').match(/^(\d+)\s*[x×]/i);
+            const count = match ? parseInt(match[1], 10) : 1;
+            return Number.isFinite(count) && count > 0 ? count : 1;
+        }
+
+        function ensureExerciseSetInputs(exerciseName, setCount) {
+            if (!appState.kraftExerciseInputs[exerciseName]) {
+                appState.kraftExerciseInputs[exerciseName] = { sets: [] };
+            }
+            if (!Array.isArray(appState.kraftExerciseInputs[exerciseName].sets)) {
+                appState.kraftExerciseInputs[exerciseName].sets = [];
+            }
+
+            for (let i = 0; i < setCount; i++) {
+                if (!appState.kraftExerciseInputs[exerciseName].sets[i]) {
+                    appState.kraftExerciseInputs[exerciseName].sets[i] = { weight: '', reps: '' };
+                }
+            }
+        }
+
+        function renderExerciseSetInputs(exercise) {
+            const setCount = getRecommendedSetCount(exercise.reps);
+            ensureExerciseSetInputs(exercise.name, setCount);
+            const setInputs = appState.kraftExerciseInputs[exercise.name].sets;
+
+            let html = '';
+            for (let i = 0; i < setCount; i++) {
+                const set = setInputs[i] || { weight: '', reps: '' };
+                html += `
+                    <div class="exercise-inputs" style="margin-bottom: 6px;">
+                        <input type="text" placeholder="Set ${i + 1} Gewicht" value="${set.weight || ''}" onchange="updateKraftSetInput('${exercise.name}', ${i}, 'weight', this.value)">
+                        <input type="text" placeholder="Set ${i + 1} Reps" value="${set.reps || ''}" onchange="updateKraftSetInput('${exercise.name}', ${i}, 'reps', this.value)">
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="exercise-inputs">
+                    <button class="btn-success" onclick="saveKraftExercise('${exercise.name}')">✅ Speichern</button>
+                    ${exercise.weightKey ? `<button class="btn-small-plus" onclick="increaseWeight('${exercise.weightKey}')">+5</button>` : ''}
+                </div>
+            `;
+
+            return html;
+        }
+
+        function getCardioFeedback(zone, avgHR, distance, duration) {
+            if (!avgHR || !distance || !duration) return null;
+
+            const feedback = [];
+            const pace = duration / distance;
+            const zoneRange = hrZones[zone];
+
+            if (avgHR < zoneRange.min) {
+                feedback.push({
+                    type: 'warning',
+                    text: `⚠️ HR zu niedrig (${avgHR} vs Ziel ${zoneRange.target})`,
+                    detail: 'Erhöhe das Tempo leicht.'
+                });
+            } else if (avgHR > zoneRange.max) {
+                feedback.push({
+                    type: 'warning',
+                    text: `⚠️ HR zu hoch (${avgHR} vs Ziel ${zoneRange.target})`,
+                    detail: 'Verlangsame dein Tempo.'
+                });
+            } else {
+                feedback.push({
+                    type: 'success',
+                    text: `✅ HR perfekt (${avgHR} bpm) für ${zone}`,
+                    detail: `Pace: ${pace.toFixed(1)} min/km - gut gemacht!`
+                });
+            }
+
+            return feedback;
+        }
+
+        function toggleSession(sessionId) {
+            appState.currentDay = appState.currentDay === sessionId ? null : sessionId;
+            saveData();
+            renderUI();
+        }
+
+        function updateCardioInput(field, value) {
+            appState.cardioInput[field] = value;
+            saveData();
+            renderSessions();
+        }
+
+        function updateKraftInput(exerciseName, field, value) {
+            if (!appState.kraftExerciseInputs[exerciseName]) {
+                appState.kraftExerciseInputs[exerciseName] = {};
+            }
+            appState.kraftExerciseInputs[exerciseName][field] = value;
+            saveData();
+        }
+
+        function updateKraftSetInput(exerciseName, setIndex, field, value) {
+            if (!appState.kraftExerciseInputs[exerciseName]) {
+                appState.kraftExerciseInputs[exerciseName] = { sets: [] };
+            }
+            if (!Array.isArray(appState.kraftExerciseInputs[exerciseName].sets)) {
+                appState.kraftExerciseInputs[exerciseName].sets = [];
+            }
+            if (!appState.kraftExerciseInputs[exerciseName].sets[setIndex]) {
+                appState.kraftExerciseInputs[exerciseName].sets[setIndex] = { weight: '', reps: '' };
+            }
+
+            appState.kraftExerciseInputs[exerciseName].sets[setIndex][field] = value;
+            saveData();
+        }
+
+        function saveCardioWorkout() {
+            if (!appState.cardioInput.distance || !appState.cardioInput.duration || !appState.cardioInput.avgHR) {
+                alert('Bitte alle Felder ausfüllen');
+                return;
+            }
+
+            const key = `${appState.currentWeek}-${appState.currentDay}`;
+            appState.workoutHistory[key] = {
+                type: 'cardio',
+                zone: appState.cardioInput.zone,
+                duration: parseFloat(appState.cardioInput.duration),
+                avgHR: parseFloat(appState.cardioInput.avgHR),
+                distance: parseFloat(appState.cardioInput.distance),
+                completed: true,
+            };
+
+            appState.cardioInput = { zone: 'Zone 2', duration: '', avgHR: '', distance: '' };
+            appState.currentDay = null;
+            saveData();
+            renderUI();
+        }
+
+        function saveKraftExercise(exerciseName) {
+            const input = appState.kraftExerciseInputs[exerciseName];
+            
+            if (exerciseName === 'Stairmaster') {
+                if (!input?.duration) {
+                    alert('Minuten eingeben');
+                    return;
+                }
+            } else {
+                const sets = Array.isArray(input?.sets) ? input.sets : [];
+                if (!sets.length || sets.some(set => !set?.weight || !set?.reps)) {
+                    alert('Bitte Gewicht und Reps fuer alle Sets ausfuellen');
+                    return;
+                }
+            }
+
+            const key = `${appState.currentWeek}-${appState.currentDay}-kraft`;
+            if (!Array.isArray(appState.workoutHistory[key])) {
+                appState.workoutHistory[key] = [];
+                appState.workoutHistory[key].type = 'kraft';
+                appState.workoutHistory[key].completed = true;
+            }
+
+            if (exerciseName === 'Stairmaster') {
+                appState.workoutHistory[key].push({
+                    exercise: exerciseName,
+                    duration: parseFloat(input.duration),
+                    unit: 'min',
+                });
+            } else {
+                const sets = input.sets.map(set => ({
+                    weight: parseFloat(set.weight),
+                    reps: set.reps,
+                }));
+
+                appState.workoutHistory[key].push({
+                    exercise: exerciseName,
+                    sets,
+                });
+            }
+
+            delete appState.kraftExerciseInputs[exerciseName];
+            saveData();
+            renderSessions();
+        }
+
+        function increaseWeight(weightKey) {
+            appState.startWeights[weightKey] += 5;
+            saveData();
+            renderSessions();
+        }
+
+        function updateStats() {
+            let cardioCount = 0;
+            let kraftCount = 0;
+            let completedCount = 0;
+
+            Object.values(appState.workoutHistory).forEach(data => {
+                if (data?.completed) {
+                    completedCount++;
+                    if (data.type === 'cardio') cardioCount++;
+                    if (data.type === 'kraft') kraftCount++;
+                }
+            });
+
+            document.getElementById('cardioCount').textContent = cardioCount;
+            document.getElementById('kraftCount').textContent = kraftCount;
+            document.getElementById('completedCount').textContent = completedCount;
+        }
+    </script>
+</body>
+</html>
