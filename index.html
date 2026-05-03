@@ -751,6 +751,51 @@
             return getKraftSessionExercises(sessionData).length > 0;
         }
 
+        function getRequiredExerciseKeysForSession(session) {
+            if (!session || session.type !== 'kraft') return [];
+
+            const required = [];
+            const exercises = kraftExercises[session.kraft] || [];
+            exercises.forEach(ex => required.push(getExerciseKey(ex.name)));
+            if (session.hasStairmaster) {
+                required.push(getExerciseKey('Stairmaster'));
+            }
+            return required;
+        }
+
+        function getCompletedExerciseKeySet(sessionData) {
+            const set = new Set();
+            const exercises = getKraftSessionExercises(sessionData);
+            exercises.forEach(item => {
+                const key = item?.exerciseKey || getExerciseKey(item?.exercise);
+                if (key) set.add(key);
+            });
+            return set;
+        }
+
+        function isKraftTrainingFullyCompleted(week, session) {
+            if (!session || session.type !== 'kraft') return false;
+            const key = `${week}-${session.id}-kraft`;
+            const sessionData = appState.workoutHistory[key];
+            if (!sessionData) return false;
+
+            const required = getRequiredExerciseKeysForSession(session);
+            if (!required.length) return false;
+
+            const completedSet = getCompletedExerciseKeySet(sessionData);
+            return required.every(req => completedSet.has(req));
+        }
+
+        function getKraftSessionProgress(week, session) {
+            if (!session || session.type !== 'kraft') return { done: 0, total: 0 };
+
+            const total = getRequiredExerciseKeysForSession(session).length;
+            const key = `${week}-${session.id}-kraft`;
+            const sessionData = appState.workoutHistory[key];
+            const done = getCompletedExerciseKeySet(sessionData).size;
+            return { done: Math.min(done, total), total };
+        }
+
         function getStateStorageKey(ownerId) {
             return `${STORAGE_PREFIX}:${ownerId}`;
         }
@@ -1125,10 +1170,13 @@
                     ? appState.workoutHistory[kraftKey]
                     : appState.workoutHistory[key];
                 const isCompleted = session.type === 'kraft'
-                    ? isKraftSessionCompleted(data)
+                    ? isKraftTrainingFullyCompleted(appState.currentWeek, session)
                     : !!data?.completed;
                 const isExpanded = appState.currentDay === session.id;
                 const kraftEntries = session.type === 'kraft' ? getKraftSessionExercises(data) : [];
+                const kraftProgress = session.type === 'kraft'
+                    ? getKraftSessionProgress(appState.currentWeek, session)
+                    : { done: 0, total: 0 };
 
                 const sessionEl = document.createElement('div');
                 sessionEl.className = `session ${isCompleted ? 'completed' : ''} ${isExpanded ? 'expanded' : ''}`;
@@ -1146,7 +1194,12 @@
                             ` : ''}
                             ${isCompleted && session.type === 'kraft' ? `
                                 <div style="font-size: 11px; background: #fef08a; border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
-                                    ✅ ${kraftEntries.length} Übungen abgeschlossen
+                                    ✅ ${kraftProgress.done}/${kraftProgress.total} Übungen abgeschlossen
+                                </div>
+                            ` : ''}
+                            ${!isCompleted && session.type === 'kraft' && kraftProgress.total > 0 && kraftProgress.done > 0 ? `
+                                <div style="font-size: 11px; background: #fef3c7; border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
+                                    ⏳ ${kraftProgress.done}/${kraftProgress.total} Übungen abgeschlossen
                                 </div>
                             ` : ''}
                         </div>
@@ -1582,14 +1635,27 @@
             let kraftCount = 0;
             let completedCount = 0;
 
-            Object.values(appState.workoutHistory).forEach(data => {
-                const isKraft = (data?.type === 'kraft') || Array.isArray(data?.exercises) || Array.isArray(data);
-                const completed = isKraft ? isKraftSessionCompleted(data) : !!data?.completed;
+            Object.entries(appState.workoutHistory).forEach(([historyKey, data]) => {
+                if (historyKey.endsWith('-kraft')) {
+                    const match = historyKey.match(/^(\d+)-(.+)-kraft$/);
+                    if (!match) return;
 
-                if (completed) {
+                    const week = parseInt(match[1], 10);
+                    const sessionId = match[2];
+                    const plan = trainingPlans[week] || trainingPlans[2];
+                    const session = plan.find(item => item.id === sessionId && item.type === 'kraft');
+                    if (!session) return;
+
+                    if (isKraftTrainingFullyCompleted(week, session)) {
+                        kraftCount++;
+                        completedCount++;
+                    }
+                    return;
+                }
+
+                if (data?.type === 'cardio' && data?.completed) {
+                    cardioCount++;
                     completedCount++;
-                    if (data.type === 'cardio') cardioCount++;
-                    if (isKraft) kraftCount++;
                 }
             });
 
