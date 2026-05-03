@@ -1207,13 +1207,15 @@
             ensureExerciseSetInputs(exercise.name, setCount);
             const setInputs = appState.kraftExerciseInputs[exercise.name].sets;
             const savedEntry = getSavedExerciseEntryForCurrentSession(exercise.name);
+            const requiresWeight = !!exercise.weightKey || exercise.unit !== 'reps';
+            const weightPlaceholder = requiresWeight ? 'Gewicht' : 'Gewicht opt.';
 
             let html = '';
             for (let i = 0; i < setCount; i++) {
                 const set = setInputs[i] || { weight: '', reps: '' };
                 html += `
                     <div class="exercise-inputs set-row" style="margin-bottom: 6px;">
-                        <input type="text" placeholder="Set ${i + 1} Gewicht" value="${set.weight || ''}" onchange="updateKraftSetInput('${exercise.name}', ${i}, 'weight', this.value)">
+                        <input type="text" placeholder="Set ${i + 1} ${weightPlaceholder}" value="${set.weight || ''}" onchange="updateKraftSetInput('${exercise.name}', ${i}, 'weight', this.value)">
                         <input type="text" placeholder="Set ${i + 1} Reps" value="${set.reps || ''}" onchange="updateKraftSetInput('${exercise.name}', ${i}, 'reps', this.value)">
                     </div>
                 `;
@@ -1284,6 +1286,17 @@
         function getCurrentKraftSessionKey() {
             if (!appState.currentDay) return null;
             return `${appState.currentWeek}-${appState.currentDay}-kraft`;
+        }
+
+        function getCurrentKraftExerciseMeta(exerciseName) {
+            if (!appState.currentDay) return null;
+
+            const plan = trainingPlans[appState.currentWeek] || trainingPlans[2];
+            const session = plan.find(item => item.id === appState.currentDay);
+            if (!session || session.type !== 'kraft' || !session.kraft) return null;
+
+            const exercises = kraftExercises[session.kraft] || [];
+            return exercises.find(ex => ex.name === exerciseName) || null;
         }
 
         function getExerciseKey(name) {
@@ -1398,6 +1411,8 @@
 
         function saveKraftExercise(exerciseName) {
             const input = appState.kraftExerciseInputs[exerciseName];
+            const exerciseMeta = getCurrentKraftExerciseMeta(exerciseName);
+            const requiresWeight = !!exerciseMeta?.weightKey || (exerciseMeta ? exerciseMeta.unit !== 'reps' : true);
             
             if (exerciseName === 'Stairmaster') {
                 if (!input?.duration) {
@@ -1406,8 +1421,16 @@
                 }
             } else {
                 const sets = Array.isArray(input?.sets) ? input.sets : [];
-                if (!sets.length || sets.some(set => !set?.weight || !set?.reps)) {
-                    alert('Bitte Gewicht und Reps fuer alle Sets ausfuellen');
+                const hasInvalidSet = sets.some(set => {
+                    const hasReps = !!set?.reps;
+                    const hasWeight = !requiresWeight || !!set?.weight;
+                    return !hasReps || !hasWeight;
+                });
+
+                if (!sets.length || hasInvalidSet) {
+                    alert(requiresWeight
+                        ? 'Bitte Gewicht und Reps fuer alle Sets ausfuellen'
+                        : 'Bitte Reps fuer alle Sets ausfuellen');
                     return;
                 }
             }
@@ -1429,7 +1452,9 @@
                 upsertKraftExerciseEntry(key, newItem);
             } else {
                 const sets = input.sets.map(set => ({
-                    weight: parseFloat(set.weight),
+                    weight: set.weight === '' || set.weight === null || set.weight === undefined
+                        ? null
+                        : parseFloat(set.weight),
                     reps: set.reps,
                 }));
 
