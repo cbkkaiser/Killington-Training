@@ -522,6 +522,7 @@
             <div class="header-stats">
                 <div>Woche <strong id="currentWeekDisplay">1</strong>/20</div>
                 <div>✅ <strong id="completedCount">0</strong> Workouts</div>
+                <div id="loggedInUserDisplay" class="hidden"></div>
             </div>
         </div>
 
@@ -846,6 +847,7 @@
 
         function renderAuthControls() {
             const authUserRow = document.getElementById('authUserRow');
+            const loggedInUserDisplay = document.getElementById('loggedInUserDisplay');
             const authInputRow = document.getElementById('authInputRow');
             const authActionRow = document.getElementById('authActionRow');
             const cloudActionRow = document.getElementById('cloudActionRow');
@@ -857,7 +859,7 @@
             const keyInput = document.getElementById('supabaseKey');
             const autoSync = document.getElementById('autoSyncToggle');
 
-            if (!authUserRow || !authInputRow || !authActionRow || !cloudActionRow || !supabaseSetup || !signUpBtn || !signInBtn || !logoutBtn || !urlInput || !keyInput || !autoSync) return;
+            if (!authUserRow || !loggedInUserDisplay || !authInputRow || !authActionRow || !cloudActionRow || !supabaseSetup || !signUpBtn || !signInBtn || !logoutBtn || !urlInput || !keyInput || !autoSync) return;
 
             const displayName = currentAuthUser?.user_metadata?.full_name || currentAuthUser?.email || 'Nicht eingeloggt';
             authUserRow.innerHTML = `<strong>Eingeloggt als:</strong> ${displayName}`;
@@ -865,6 +867,8 @@
             const isLoggedIn = !!currentAuthUser;
             if (isLoggedIn) {
                 authUserRow.classList.remove('hidden');
+                loggedInUserDisplay.classList.remove('hidden');
+                loggedInUserDisplay.textContent = `User: ${displayName}`;
                 authInputRow.classList.add('hidden');
                 cloudActionRow.classList.add('hidden');
                 supabaseSetup.classList.add('hidden');
@@ -872,14 +876,17 @@
                 signUpBtn.classList.add('hidden');
                 signInBtn.classList.add('hidden');
                 logoutBtn.classList.remove('hidden');
+                logoutBtn.textContent = `Logout (${displayName})`;
             } else {
                 authUserRow.classList.add('hidden');
+                loggedInUserDisplay.classList.add('hidden');
                 authInputRow.classList.remove('hidden');
                 authActionRow.classList.remove('hidden');
                 cloudActionRow.classList.remove('hidden');
                 signUpBtn.classList.remove('hidden');
                 signInBtn.classList.remove('hidden');
                 logoutBtn.classList.add('hidden');
+                logoutBtn.textContent = 'Logout';
             }
 
             urlInput.value = supabaseSettings.url || '';
