@@ -860,11 +860,11 @@
             if (!authUserRow || !authInputRow || !authActionRow || !cloudActionRow || !supabaseSetup || !signUpBtn || !signInBtn || !logoutBtn || !urlInput || !keyInput || !autoSync) return;
 
             const displayName = currentAuthUser?.user_metadata?.full_name || currentAuthUser?.email || 'Nicht eingeloggt';
-            authUserRow.innerHTML = `<strong>Aktiver Nutzer:</strong> ${displayName}`;
+            authUserRow.innerHTML = `<strong>Eingeloggt als:</strong> ${displayName}`;
 
             const isLoggedIn = !!currentAuthUser;
             if (isLoggedIn) {
-                authUserRow.classList.add('hidden');
+                authUserRow.classList.remove('hidden');
                 authInputRow.classList.add('hidden');
                 cloudActionRow.classList.add('hidden');
                 supabaseSetup.classList.add('hidden');
@@ -873,7 +873,7 @@
                 signInBtn.classList.add('hidden');
                 logoutBtn.classList.remove('hidden');
             } else {
-                authUserRow.classList.remove('hidden');
+                authUserRow.classList.add('hidden');
                 authInputRow.classList.remove('hidden');
                 authActionRow.classList.remove('hidden');
                 cloudActionRow.classList.remove('hidden');
