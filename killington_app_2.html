@@ -612,7 +612,8 @@
                 walkingLunges: 40,
                 kettlebellSwings: 53,
             },
-            kraftExerciseInputs: {}
+            kraftExerciseInputs: {},
+            pendingWeightIncrease: {}
         };
 
         const defaultSupabaseSettings = {
@@ -699,6 +700,7 @@
                 },
                 workoutHistory: normalizedWorkoutHistory,
                 kraftExerciseInputs: data?.kraftExerciseInputs || {},
+                pendingWeightIncrease: data?.pendingWeightIncrease || {},
             };
         }
 
@@ -1335,6 +1337,36 @@
                 }
             }
 
+            const currentSessionKey = getCurrentKraftSessionKey();
+            const exerciseKey = getExerciseKey(exerciseName);
+            const pendingIncrease = Number(appState.pendingWeightIncrease?.[exerciseKey] || 0);
+            const hasExistingWeights = appState.kraftExerciseInputs[exerciseName].sets.some(set => String(set?.weight ?? '') !== '');
+
+            if (!savedEntry && !hasExistingWeights) {
+                const previousEntry = getLastKraftEntryForExercise(exerciseName, { excludeSessionKey: currentSessionKey });
+                if (previousEntry) {
+                    const previousSets = Array.isArray(previousEntry.sets) && previousEntry.sets.length
+                        ? previousEntry.sets
+                        : [{ weight: previousEntry?.weight ?? null }];
+
+                    for (let i = 0; i < setCount; i++) {
+                        const sourceSet = previousSets[i] || previousSets[previousSets.length - 1] || {};
+                        const baseWeight = parseFloat(sourceSet?.weight);
+                        if (Number.isFinite(baseWeight)) {
+                            appState.kraftExerciseInputs[exerciseName].sets[i] = {
+                                ...appState.kraftExerciseInputs[exerciseName].sets[i],
+                                weight: pendingIncrease > 0 ? baseWeight + pendingIncrease : baseWeight,
+                            };
+                        }
+                    }
+
+                    if (pendingIncrease > 0) {
+                        delete appState.pendingWeightIncrease[exerciseKey];
+                        saveData();
+                    }
+                }
+            }
+
             for (let i = 0; i < setCount; i++) {
                 if (!appState.kraftExerciseInputs[exerciseName].sets[i]) {
                     appState.kraftExerciseInputs[exerciseName].sets[i] = { weight: '', reps: '' };
@@ -1349,6 +1381,7 @@
             const savedEntry = getSavedExerciseEntryForCurrentSession(exercise.name);
             const requiresWeight = !!exercise.weightKey || exercise.unit !== 'reps';
             const weightPlaceholder = requiresWeight ? 'Gewicht' : 'Gewicht opt.';
+            const addFiveNext = !!appState.kraftExerciseInputs[exercise.name]?.addFiveNext;
 
             let html = '';
             for (let i = 0; i < setCount; i++) {
@@ -1363,6 +1396,7 @@
 
             html += `
                 <div class="exercise-inputs">
+                    ${requiresWeight ? `<button class="btn-small-plus" style="margin-right:auto; background:${addFiveNext ? '#16a34a' : '#4b5563'};" onclick="toggleKraftAddFiveNext('${exercise.name}')">+5 naechstes Mal: ${addFiveNext ? 'AN' : 'AUS'}</button>` : ''}
                     <button class="btn-success" onclick="saveKraftExercise('${exercise.name}')">✅ Speichern</button>
                 </div>
             `;
@@ -1422,6 +1456,119 @@
             }
 
             return null;
+        }
+
+        function getLastKraftEntryForExercise(exerciseName, options = {}) {
+            const { excludeSessionKey = null } = options;
+            const keys = Object.keys(appState.workoutHistory)
+                .filter(key => key.endsWith('-kraft') && key !== excludeSessionKey)
+                .sort((a, b) => getHistorySortScore(b) - getHistorySortScore(a));
+
+            const exerciseKey = getExerciseKey(exerciseName);
+            for (const key of keys) {
+                const sessionData = appState.workoutHistory[key];
+                const exercises = getKraftSessionExercises(sessionData);
+                if (!exercises.length) continue;
+
+                for (let i = exercises.length - 1; i >= 0; i--) {
+                    const item = exercises[i];
+                    if (!item) continue;
+                    const itemKey = item.exerciseKey || getExerciseKey(item.exercise);
+                    if (itemKey === exerciseKey) {
+                        return item;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function getNumericReps(value) {
+            const match = String(value ?? '').match(/\d+/);
+            if (!match) return 0;
+            const parsed = parseInt(match[0], 10);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+
+        function getKraftMetricsFromSets(sets) {
+            const source = Array.isArray(sets) ? sets : [];
+            let topWeight = null;
+            let totalReps = 0;
+
+            source.forEach(set => {
+                const weight = parseFloat(set?.weight);
+                if (Number.isFinite(weight)) {
+                    topWeight = topWeight === null ? weight : Math.max(topWeight, weight);
+                }
+                totalReps += getNumericReps(set?.reps);
+            });
+
+            return { topWeight, totalReps };
+        }
+
+        function getKraftProgressFeedbackText(exerciseName, currentSets, previousEntry) {
+            if (!previousEntry) {
+                return `📌 ${exerciseName}: Erstes gespeichertes Training fuer diese Uebung.`;
+            }
+
+            const previousSets = Array.isArray(previousEntry.sets)
+                ? previousEntry.sets
+                : [{ weight: previousEntry?.weight ?? null, reps: previousEntry?.reps ?? '' }];
+
+            const currentMetrics = getKraftMetricsFromSets(currentSets);
+            const previousMetrics = getKraftMetricsFromSets(previousSets);
+            const topWeightDelta = (currentMetrics.topWeight ?? 0) - (previousMetrics.topWeight ?? 0);
+            const repsDelta = currentMetrics.totalReps - previousMetrics.totalReps;
+
+            const improved = topWeightDelta > 0 || (topWeightDelta === 0 && repsDelta > 0);
+            const trendIcon = improved ? '📈' : '📊';
+            const trendText = improved ? 'Verbessert' : 'Nicht verbessert';
+
+            const nowWeightText = currentMetrics.topWeight === null ? '-' : `${currentMetrics.topWeight} lbs`;
+            const lastWeightText = previousMetrics.topWeight === null ? '-' : `${previousMetrics.topWeight} lbs`;
+
+            return `${trendIcon} ${exerciseName}: ${trendText}\nTop Gewicht: ${lastWeightText} -> ${nowWeightText} (${topWeightDelta >= 0 ? '+' : ''}${topWeightDelta} lbs)\nGesamt-Reps: ${previousMetrics.totalReps} -> ${currentMetrics.totalReps} (${repsDelta >= 0 ? '+' : ''}${repsDelta})`;
+        }
+
+        function getCardioHistorySortScore(historyKey) {
+            const match = String(historyKey).match(/^(\d+)-w(\d+)d(\d+)$/);
+            if (!match) return -1;
+            const week = parseInt(match[1], 10) || 0;
+            const day = parseInt(match[3], 10) || 0;
+            return week * 10 + day;
+        }
+
+        function getPreviousCardioWorkout(excludeKey) {
+            const keys = Object.keys(appState.workoutHistory)
+                .filter(key => !key.endsWith('-kraft') && key !== excludeKey)
+                .sort((a, b) => getCardioHistorySortScore(b) - getCardioHistorySortScore(a));
+
+            for (const key of keys) {
+                const entry = appState.workoutHistory[key];
+                if (entry?.type === 'cardio' && entry?.completed) {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
+
+        function getCardioProgressFeedbackText(currentWorkout, previousWorkout) {
+            if (!previousWorkout) {
+                return '📌 Lauf gespeichert: Erstes gespeichertes Lauf-Training.';
+            }
+
+            const currentPace = currentWorkout.duration / currentWorkout.distance;
+            const previousPace = previousWorkout.duration / previousWorkout.distance;
+            const paceDelta = previousPace - currentPace;
+            const hrDelta = currentWorkout.avgHR - previousWorkout.avgHR;
+            const distanceDelta = currentWorkout.distance - previousWorkout.distance;
+
+            const improved = paceDelta > 0 || distanceDelta > 0;
+            const trendIcon = improved ? '📈' : '📊';
+            const trendText = improved ? 'Verbessert' : 'Nicht verbessert';
+
+            return `${trendIcon} Lauf: ${trendText}\nDistanz: ${previousWorkout.distance} -> ${currentWorkout.distance} km (${distanceDelta >= 0 ? '+' : ''}${distanceDelta.toFixed(1)})\nPace: ${previousPace.toFixed(2)} -> ${currentPace.toFixed(2)} min/km (${paceDelta >= 0 ? '-' : '+'}${Math.abs(paceDelta).toFixed(2)})\nØ HR: ${previousWorkout.avgHR} -> ${currentWorkout.avgHR} bpm (${hrDelta >= 0 ? '+' : ''}${hrDelta})`;
         }
 
         function getCurrentKraftSessionKey() {
@@ -1514,6 +1661,12 @@
             saveData();
         }
 
+        function toggleKraftAddFiveNext(exerciseName) {
+            const current = !!appState.kraftExerciseInputs[exerciseName]?.addFiveNext;
+            updateKraftInput(exerciseName, 'addFiveNext', !current);
+            renderSessions();
+        }
+
         function updateKraftSetInput(exerciseName, setIndex, field, value) {
             if (!appState.kraftExerciseInputs[exerciseName]) {
                 appState.kraftExerciseInputs[exerciseName] = { sets: [] };
@@ -1536,7 +1689,8 @@
             }
 
             const key = `${appState.currentWeek}-${appState.currentDay}`;
-            appState.workoutHistory[key] = {
+            const previousCardio = getPreviousCardioWorkout(key);
+            const savedCardio = {
                 type: 'cardio',
                 zone: appState.cardioInput.zone,
                 duration: parseFloat(appState.cardioInput.duration),
@@ -1544,11 +1698,13 @@
                 distance: parseFloat(appState.cardioInput.distance),
                 completed: true,
             };
+            appState.workoutHistory[key] = savedCardio;
 
             appState.cardioInput = { zone: 'Zone 2', duration: '', avgHR: '', distance: '' };
             appState.currentDay = null;
             saveData();
             renderUI();
+            alert(getCardioProgressFeedbackText(savedCardio, previousCardio));
         }
 
         function saveKraftExercise(exerciseName) {
@@ -1578,6 +1734,9 @@
             }
 
             const key = `${appState.currentWeek}-${appState.currentDay}-kraft`;
+            const previousExerciseEntry = exerciseName === 'Stairmaster'
+                ? null
+                : getLastKraftEntryForExercise(exerciseName, { excludeSessionKey: key });
             appState.workoutHistory[key] = normalizeKraftSessionData(appState.workoutHistory[key]);
 
             if (exerciseName === 'Stairmaster') {
@@ -1602,9 +1761,22 @@
                     sets,
                 };
                 upsertKraftExerciseEntry(key, newItem);
+
+                const shouldIncreaseNext = !!input?.addFiveNext;
+                const pendingKey = getExerciseKey(exerciseName);
+                if (shouldIncreaseNext) {
+                    appState.pendingWeightIncrease[pendingKey] = 5;
+                } else {
+                    delete appState.pendingWeightIncrease[pendingKey];
+                }
+
+                alert(getKraftProgressFeedbackText(exerciseName, sets, previousExerciseEntry));
             }
 
-            appState.kraftExerciseInputs[exerciseName] = JSON.parse(JSON.stringify(input));
+            appState.kraftExerciseInputs[exerciseName] = {
+                ...JSON.parse(JSON.stringify(input)),
+                addFiveNext: false,
+            };
             saveData();
             renderSessions();
         }
