@@ -684,6 +684,7 @@
 
         function mergeWithDefaultState(data) {
             const defaults = createDefaultState();
+            const normalizedWorkoutHistory = normalizeWorkoutHistory(data?.workoutHistory || {});
             return {
                 ...defaults,
                 ...data,
@@ -695,9 +696,58 @@
                     ...defaults.startWeights,
                     ...(data?.startWeights || {}),
                 },
-                workoutHistory: data?.workoutHistory || {},
+                workoutHistory: normalizedWorkoutHistory,
                 kraftExerciseInputs: data?.kraftExerciseInputs || {},
             };
+        }
+
+        function normalizeWorkoutHistory(history) {
+            const normalized = {};
+            Object.entries(history || {}).forEach(([key, value]) => {
+                if (key.endsWith('-kraft')) {
+                    normalized[key] = normalizeKraftSessionData(value);
+                } else {
+                    normalized[key] = value;
+                }
+            });
+            return normalized;
+        }
+
+        function normalizeKraftSessionData(value) {
+            if (value && !Array.isArray(value) && Array.isArray(value.exercises)) {
+                return {
+                    type: 'kraft',
+                    completed: value.completed !== false,
+                    exercises: value.exercises,
+                };
+            }
+
+            if (Array.isArray(value)) {
+                return {
+                    type: 'kraft',
+                    completed: value.length > 0,
+                    exercises: value,
+                };
+            }
+
+            return {
+                type: 'kraft',
+                completed: false,
+                exercises: [],
+            };
+        }
+
+        function getKraftSessionExercises(sessionData) {
+            if (!sessionData) return [];
+            if (Array.isArray(sessionData)) return sessionData;
+            if (Array.isArray(sessionData.exercises)) return sessionData.exercises;
+            return [];
+        }
+
+        function isKraftSessionCompleted(sessionData) {
+            if (!sessionData) return false;
+            if (sessionData.completed === true) return true;
+            return getKraftSessionExercises(sessionData).length > 0;
         }
 
         function getStateStorageKey(ownerId) {
@@ -818,12 +868,14 @@
                 authInputRow.classList.add('hidden');
                 cloudActionRow.classList.add('hidden');
                 supabaseSetup.classList.add('hidden');
+                authActionRow.classList.remove('hidden');
                 signUpBtn.classList.add('hidden');
                 signInBtn.classList.add('hidden');
                 logoutBtn.classList.remove('hidden');
             } else {
                 authUserRow.classList.remove('hidden');
                 authInputRow.classList.remove('hidden');
+                authActionRow.classList.remove('hidden');
                 cloudActionRow.classList.remove('hidden');
                 signUpBtn.classList.remove('hidden');
                 signInBtn.classList.remove('hidden');
@@ -1065,8 +1117,11 @@
                 const data = session.type === 'kraft'
                     ? appState.workoutHistory[kraftKey]
                     : appState.workoutHistory[key];
-                const isCompleted = data?.completed;
+                const isCompleted = session.type === 'kraft'
+                    ? isKraftSessionCompleted(data)
+                    : !!data?.completed;
                 const isExpanded = appState.currentDay === session.id;
+                const kraftEntries = session.type === 'kraft' ? getKraftSessionExercises(data) : [];
 
                 const sessionEl = document.createElement('div');
                 sessionEl.className = `session ${isCompleted ? 'completed' : ''} ${isExpanded ? 'expanded' : ''}`;
@@ -1082,9 +1137,9 @@
                                     📊 ${data.distance} km in ${data.duration} min • ❤️ ${data.avgHR} bpm
                                 </div>
                             ` : ''}
-                            ${isCompleted && data.type === 'kraft' && Array.isArray(data) ? `
+                            ${isCompleted && session.type === 'kraft' ? `
                                 <div style="font-size: 11px; background: #fef08a; border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
-                                    ✅ ${data.length} Übungen abgeschlossen
+                                    ✅ ${kraftEntries.length} Übungen abgeschlossen
                                 </div>
                             ` : ''}
                         </div>
@@ -1287,10 +1342,11 @@
 
             for (const key of keys) {
                 const sessionData = appState.workoutHistory[key];
-                if (!Array.isArray(sessionData)) continue;
+                const exercises = getKraftSessionExercises(sessionData);
+                if (!exercises.length) continue;
 
-                for (let i = sessionData.length - 1; i >= 0; i--) {
-                    const item = sessionData[i];
+                for (let i = exercises.length - 1; i >= 0; i--) {
+                    const item = exercises[i];
                     if (item?.exercise !== exerciseName) continue;
 
                     if (Array.isArray(item.sets) && item.sets.length) {
@@ -1337,10 +1393,11 @@
             if (!key) return null;
 
             const sessionData = appState.workoutHistory[key];
-            if (!Array.isArray(sessionData)) return null;
+            const exercises = getKraftSessionExercises(sessionData);
+            if (!exercises.length) return null;
             const exerciseKey = getExerciseKey(exerciseName);
 
-            return sessionData.find(item => {
+            return exercises.find(item => {
                 if (!item) return false;
                 if (item.exerciseKey && item.exerciseKey === exerciseKey) return true;
                 return getExerciseKey(item.exercise) === exerciseKey;
@@ -1461,11 +1518,7 @@
             }
 
             const key = `${appState.currentWeek}-${appState.currentDay}-kraft`;
-            if (!Array.isArray(appState.workoutHistory[key])) {
-                appState.workoutHistory[key] = [];
-                appState.workoutHistory[key].type = 'kraft';
-                appState.workoutHistory[key].completed = true;
-            }
+            appState.workoutHistory[key] = normalizeKraftSessionData(appState.workoutHistory[key]);
 
             if (exerciseName === 'Stairmaster') {
                 const newItem = {
@@ -1497,7 +1550,8 @@
         }
 
         function upsertKraftExerciseEntry(sessionKey, newItem) {
-            const list = appState.workoutHistory[sessionKey];
+            const sessionData = normalizeKraftSessionData(appState.workoutHistory[sessionKey]);
+            const list = sessionData.exercises;
             const incomingKey = newItem.exerciseKey || getExerciseKey(newItem.exercise);
             const existingIndex = list.findIndex(item => {
                 if (!item) return false;
@@ -1511,8 +1565,9 @@
                 list.push(newItem);
             }
 
-            list.type = 'kraft';
-            list.completed = true;
+            sessionData.type = 'kraft';
+            sessionData.completed = list.length > 0;
+            appState.workoutHistory[sessionKey] = sessionData;
         }
 
         function updateStats() {
@@ -1521,10 +1576,13 @@
             let completedCount = 0;
 
             Object.values(appState.workoutHistory).forEach(data => {
-                if (data?.completed) {
+                const isKraft = (data?.type === 'kraft') || Array.isArray(data?.exercises) || Array.isArray(data);
+                const completed = isKraft ? isKraftSessionCompleted(data) : !!data?.completed;
+
+                if (completed) {
                     completedCount++;
                     if (data.type === 'cardio') cardioCount++;
-                    if (data.type === 'kraft') kraftCount++;
+                    if (isKraft) kraftCount++;
                 }
             });
 
