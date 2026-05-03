@@ -314,6 +314,11 @@
             border-left: 3px solid #f59e0b;
         }
 
+        .exercise-item.completed {
+            background: #fef08a;
+            border-left: 3px solid #f59e0b;
+        }
+
         .exercise-header {
             font-weight: 600;
             color: #1f2937;
@@ -1126,6 +1131,7 @@
 
         function renderKraftForm(session) {
             const exercises = kraftExercises[session.kraft];
+            const stairmasterSaved = !!getSavedExerciseEntryForCurrentSession('Stairmaster');
             
             let html = `
                 <div class="form-section">
@@ -1135,7 +1141,7 @@
             // Stairmaster
             if (session.hasStairmaster) {
                 html += `
-                    <div class="exercise-item stairmaster">
+                    <div class="exercise-item stairmaster ${stairmasterSaved ? 'completed' : ''}">
                         <div class="exercise-header">🏔️ Stairmaster / Hill</div>
                         <div class="exercise-reps">${session.details.includes('Stairmaster') ? '25–35 Min' : '30–40 Min'}</div>
                         <div class="exercise-inputs">
@@ -1148,7 +1154,7 @@
 
             // Normal exercises
             html += exercises.map(ex => `
-                        <div class="exercise-item">
+                        <div class="exercise-item ${getSavedExerciseEntryForCurrentSession(ex.name) ? 'completed' : ''}">
                             <div class="exercise-header">${ex.name}</div>
                             <div class="exercise-reps">${ex.reps}${renderWeightSuggestion(ex)}</div>
                             ${renderExerciseSetInputs(ex)}
@@ -1280,14 +1286,27 @@
             return `${appState.currentWeek}-${appState.currentDay}-kraft`;
         }
 
+        function getExerciseKey(name) {
+            return String(name || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]/g, '');
+        }
+
         function getSavedExerciseEntryForCurrentSession(exerciseName) {
             const key = getCurrentKraftSessionKey();
             if (!key) return null;
 
             const sessionData = appState.workoutHistory[key];
             if (!Array.isArray(sessionData)) return null;
+            const exerciseKey = getExerciseKey(exerciseName);
 
-            return sessionData.find(item => item?.exercise === exerciseName) || null;
+            return sessionData.find(item => {
+                if (!item) return false;
+                if (item.exerciseKey && item.exerciseKey === exerciseKey) return true;
+                return getExerciseKey(item.exercise) === exerciseKey;
+            }) || null;
         }
 
         function getCardioFeedback(zone, avgHR, distance, duration) {
@@ -1403,6 +1422,7 @@
             if (exerciseName === 'Stairmaster') {
                 const newItem = {
                     exercise: exerciseName,
+                    exerciseKey: getExerciseKey(exerciseName),
                     duration: parseFloat(input.duration),
                     unit: 'min',
                 };
@@ -1415,6 +1435,7 @@
 
                 const newItem = {
                     exercise: exerciseName,
+                    exerciseKey: getExerciseKey(exerciseName),
                     sets,
                 };
                 upsertKraftExerciseEntry(key, newItem);
@@ -1427,7 +1448,12 @@
 
         function upsertKraftExerciseEntry(sessionKey, newItem) {
             const list = appState.workoutHistory[sessionKey];
-            const existingIndex = list.findIndex(item => item?.exercise === newItem.exercise);
+            const incomingKey = newItem.exerciseKey || getExerciseKey(newItem.exercise);
+            const existingIndex = list.findIndex(item => {
+                if (!item) return false;
+                if (item.exerciseKey && item.exerciseKey === incomingKey) return true;
+                return getExerciseKey(item.exercise) === incomingKey;
+            });
 
             if (existingIndex >= 0) {
                 list[existingIndex] = newItem;
