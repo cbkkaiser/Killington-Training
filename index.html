@@ -397,6 +397,89 @@
             font-size: 12px;
             color: #fed7aa;
         }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 10px;
+                padding-bottom: 70px;
+            }
+
+            .header {
+                padding: 16px;
+                border-radius: 12px;
+                margin-bottom: 14px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .header-stats {
+                gap: 8px;
+                flex-wrap: wrap;
+                font-size: 11px;
+            }
+
+            .profile-panel {
+                padding: 10px;
+                margin-bottom: 12px;
+            }
+
+            .profile-row {
+                flex-direction: column;
+                align-items: stretch;
+                margin-bottom: 10px;
+            }
+
+            .profile-row label {
+                min-width: 0;
+            }
+
+            .profile-row input,
+            .profile-row select,
+            .profile-row button {
+                width: 100%;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                margin-bottom: 14px;
+            }
+
+            .stat-card {
+                padding: 12px;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+
+            .session-header {
+                padding: 12px;
+            }
+
+            .form-section {
+                padding: 12px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+
+            .exercise-inputs {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .exercise-inputs button,
+            .btn-success,
+            .btn-secondary,
+            .btn-light {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -647,10 +730,23 @@
             }
         }
 
+        function getTodayLabel() {
+            const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+            return weekdays[new Date().getDay()];
+        }
+
+        function setTodaySessionForCurrentWeek() {
+            const plan = trainingPlans[appState.currentWeek] || trainingPlans[2];
+            const todayLabel = getTodayLabel();
+            const todaySession = plan.find(session => String(session.day).startsWith(todayLabel));
+            appState.currentDay = todaySession ? todaySession.id : null;
+        }
+
         async function initApp() {
             loadSupabaseSettings();
             initSupabaseClient();
             loadDataForOwner('guest');
+            setTodaySessionForCurrentWeek();
             if (supabaseClient) {
                 await initAuth();
             }
@@ -693,6 +789,7 @@
             if (currentAuthUser) {
                 loadDataForOwner(currentAuthUser.id);
                 await loadFromSupabase(true);
+                setTodaySessionForCurrentWeek();
             }
 
             if (authListenerInitialized) {
@@ -705,9 +802,11 @@
                 if (currentAuthUser) {
                     loadDataForOwner(currentAuthUser.id);
                     await loadFromSupabase(true);
+                    setTodaySessionForCurrentWeek();
                     showSyncStatus('Login erfolgreich.', 'success');
                 } else {
                     loadDataForOwner('guest');
+                    setTodaySessionForCurrentWeek();
                     showSyncStatus('Ausgeloggt. Lokaler Gastmodus aktiv.', 'info');
                 }
 
@@ -893,7 +992,7 @@
 
         function setWeek(week) {
             appState.currentWeek = week;
-            appState.currentDay = null;
+            setTodaySessionForCurrentWeek();
             saveData();
             renderUI();
         }
@@ -1090,7 +1189,6 @@
             html += `
                 <div class="exercise-inputs">
                     <button class="btn-success" onclick="saveKraftExercise('${exercise.name}')">✅ Speichern</button>
-                    ${exercise.weightKey ? `<button class="btn-small-plus" onclick="increaseWeight('${exercise.weightKey}')">+5</button>` : ''}
                 </div>
             `;
 
@@ -1312,12 +1410,6 @@
 
             list.type = 'kraft';
             list.completed = true;
-        }
-
-        function increaseWeight(weightKey) {
-            appState.startWeights[weightKey] += 5;
-            saveData();
-            renderSessions();
         }
 
         function updateStats() {
