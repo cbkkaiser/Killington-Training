@@ -527,17 +527,17 @@
 
             <div class="profile-panel">
                 <div class="profile-row" id="authUserRow"></div>
-                <div class="profile-row">
+                <div class="profile-row" id="authInputRow">
                     <label for="authEmail">Login</label>
                     <input id="authEmail" type="email" placeholder="email@domain.com">
                     <input id="authPassword" type="password" placeholder="Passwort">
                 </div>
-                <div class="profile-row">
-                    <button class="btn-secondary" onclick="signUpWithPassword()">Registrieren</button>
-                    <button class="btn-secondary" onclick="signInWithPassword()">Einloggen</button>
-                    <button class="btn-light" onclick="signOutUser()">Logout</button>
+                <div class="profile-row" id="authActionRow">
+                    <button class="btn-secondary" id="signUpBtn" onclick="signUpWithPassword()">Registrieren</button>
+                    <button class="btn-secondary" id="signInBtn" onclick="signInWithPassword()">Einloggen</button>
+                    <button class="btn-light" id="logoutBtn" onclick="signOutUser()">Logout</button>
                 </div>
-                <div class="profile-row">
+                <div class="profile-row" id="cloudActionRow">
                     <button class="btn-light" onclick="toggleSupabaseSetup()">Supabase Setup</button>
                     <button class="btn-secondary" onclick="loadFromSupabase()">Cloud laden</button>
                     <button class="btn-secondary" onclick="saveToSupabase()">Cloud speichern</button>
@@ -796,14 +796,39 @@
 
         function renderAuthControls() {
             const authUserRow = document.getElementById('authUserRow');
+            const authInputRow = document.getElementById('authInputRow');
+            const authActionRow = document.getElementById('authActionRow');
+            const cloudActionRow = document.getElementById('cloudActionRow');
+            const supabaseSetup = document.getElementById('supabaseSetup');
+            const signUpBtn = document.getElementById('signUpBtn');
+            const signInBtn = document.getElementById('signInBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
             const urlInput = document.getElementById('supabaseUrl');
             const keyInput = document.getElementById('supabaseKey');
             const autoSync = document.getElementById('autoSyncToggle');
 
-            if (!authUserRow || !urlInput || !keyInput || !autoSync) return;
+            if (!authUserRow || !authInputRow || !authActionRow || !cloudActionRow || !supabaseSetup || !signUpBtn || !signInBtn || !logoutBtn || !urlInput || !keyInput || !autoSync) return;
 
             const displayName = currentAuthUser?.user_metadata?.full_name || currentAuthUser?.email || 'Nicht eingeloggt';
             authUserRow.innerHTML = `<strong>Aktiver Nutzer:</strong> ${displayName}`;
+
+            const isLoggedIn = !!currentAuthUser;
+            if (isLoggedIn) {
+                authUserRow.classList.add('hidden');
+                authInputRow.classList.add('hidden');
+                cloudActionRow.classList.add('hidden');
+                supabaseSetup.classList.add('hidden');
+                signUpBtn.classList.add('hidden');
+                signInBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+            } else {
+                authUserRow.classList.remove('hidden');
+                authInputRow.classList.remove('hidden');
+                cloudActionRow.classList.remove('hidden');
+                signUpBtn.classList.remove('hidden');
+                signInBtn.classList.remove('hidden');
+                logoutBtn.classList.add('hidden');
+            }
 
             urlInput.value = supabaseSettings.url || '';
             keyInput.value = supabaseSettings.anonKey || '';
