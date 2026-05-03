@@ -1024,7 +1024,7 @@
             html += exercises.map(ex => `
                         <div class="exercise-item">
                             <div class="exercise-header">${ex.name}</div>
-                            <div class="exercise-reps">${ex.reps}${ex.weightKey ? ` • Vorschlag: ${appState.startWeights[ex.weightKey]} ${ex.unit}` : ''}</div>
+                            <div class="exercise-reps">${ex.reps}${renderWeightSuggestion(ex)}</div>
                             ${renderExerciseSetInputs(ex)}
                         </div>
                     `).join('') + `
@@ -1048,6 +1048,21 @@
                 appState.kraftExerciseInputs[exerciseName].sets = [];
             }
 
+            const savedEntry = getSavedExerciseEntryForCurrentSession(exerciseName);
+            if (savedEntry) {
+                if (Array.isArray(savedEntry.sets) && savedEntry.sets.length) {
+                    appState.kraftExerciseInputs[exerciseName].sets = savedEntry.sets.map(set => ({
+                        weight: set?.weight ?? '',
+                        reps: set?.reps ?? '',
+                    }));
+                } else if (savedEntry.weight !== undefined || savedEntry.reps !== undefined) {
+                    appState.kraftExerciseInputs[exerciseName].sets = [{
+                        weight: savedEntry.weight ?? '',
+                        reps: savedEntry.reps ?? '',
+                    }];
+                }
+            }
+
             for (let i = 0; i < setCount; i++) {
                 if (!appState.kraftExerciseInputs[exerciseName].sets[i]) {
                     appState.kraftExerciseInputs[exerciseName].sets[i] = { weight: '', reps: '' };
@@ -1059,6 +1074,7 @@
             const setCount = getRecommendedSetCount(exercise.reps);
             ensureExerciseSetInputs(exercise.name, setCount);
             const setInputs = appState.kraftExerciseInputs[exercise.name].sets;
+            const savedEntry = getSavedExerciseEntryForCurrentSession(exercise.name);
 
             let html = '';
             for (let i = 0; i < setCount; i++) {
@@ -1078,7 +1094,75 @@
                 </div>
             `;
 
+            if (savedEntry) {
+                html += `<div style="font-size: 11px; color: #166534; margin-top: 6px;">Gespeichert fuer diese Session</div>`;
+            }
+
             return html;
+        }
+
+        function renderWeightSuggestion(exercise) {
+            const lastUsedWeight = getLastUsedWeightForExercise(exercise.name);
+            if (lastUsedWeight !== null) {
+                return ` • Letztes Gewicht: ${lastUsedWeight} ${exercise.unit}`;
+            }
+
+            if (exercise.weightKey) {
+                return ` • Vorschlag: ${appState.startWeights[exercise.weightKey]} ${exercise.unit}`;
+            }
+
+            return '';
+        }
+
+        function getHistorySortScore(historyKey) {
+            const match = String(historyKey).match(/^(\d+)-w(\d+)d(\d+)-kraft$/);
+            if (!match) return -1;
+            const week = parseInt(match[1], 10) || 0;
+            const day = parseInt(match[3], 10) || 0;
+            return week * 10 + day;
+        }
+
+        function getLastUsedWeightForExercise(exerciseName) {
+            const keys = Object.keys(appState.workoutHistory)
+                .filter(key => key.endsWith('-kraft'))
+                .sort((a, b) => getHistorySortScore(b) - getHistorySortScore(a));
+
+            for (const key of keys) {
+                const sessionData = appState.workoutHistory[key];
+                if (!Array.isArray(sessionData)) continue;
+
+                for (let i = sessionData.length - 1; i >= 0; i--) {
+                    const item = sessionData[i];
+                    if (item?.exercise !== exerciseName) continue;
+
+                    if (Array.isArray(item.sets) && item.sets.length) {
+                        for (let j = item.sets.length - 1; j >= 0; j--) {
+                            const w = parseFloat(item.sets[j]?.weight);
+                            if (Number.isFinite(w)) return w;
+                        }
+                    }
+
+                    const legacyWeight = parseFloat(item?.weight);
+                    if (Number.isFinite(legacyWeight)) return legacyWeight;
+                }
+            }
+
+            return null;
+        }
+
+        function getCurrentKraftSessionKey() {
+            if (!appState.currentDay) return null;
+            return `${appState.currentWeek}-${appState.currentDay}-kraft`;
+        }
+
+        function getSavedExerciseEntryForCurrentSession(exerciseName) {
+            const key = getCurrentKraftSessionKey();
+            if (!key) return null;
+
+            const sessionData = appState.workoutHistory[key];
+            if (!Array.isArray(sessionData)) return null;
+
+            return sessionData.find(item => item?.exercise === exerciseName) || null;
         }
 
         function getCardioFeedback(zone, avgHR, distance, duration) {
@@ -1192,26 +1276,42 @@
             }
 
             if (exerciseName === 'Stairmaster') {
-                appState.workoutHistory[key].push({
+                const newItem = {
                     exercise: exerciseName,
                     duration: parseFloat(input.duration),
                     unit: 'min',
-                });
+                };
+                upsertKraftExerciseEntry(key, newItem);
             } else {
                 const sets = input.sets.map(set => ({
                     weight: parseFloat(set.weight),
                     reps: set.reps,
                 }));
 
-                appState.workoutHistory[key].push({
+                const newItem = {
                     exercise: exerciseName,
                     sets,
-                });
+                };
+                upsertKraftExerciseEntry(key, newItem);
             }
 
-            delete appState.kraftExerciseInputs[exerciseName];
+            appState.kraftExerciseInputs[exerciseName] = JSON.parse(JSON.stringify(input));
             saveData();
             renderSessions();
+        }
+
+        function upsertKraftExerciseEntry(sessionKey, newItem) {
+            const list = appState.workoutHistory[sessionKey];
+            const existingIndex = list.findIndex(item => item?.exercise === newItem.exercise);
+
+            if (existingIndex >= 0) {
+                list[existingIndex] = newItem;
+            } else {
+                list.push(newItem);
+            }
+
+            list.type = 'kraft';
+            list.completed = true;
         }
 
         function increaseWeight(weightKey) {
