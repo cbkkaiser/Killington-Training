@@ -1274,7 +1274,8 @@
         function renderKraftForm(session) {
             const exercises = kraftExercises[session.kraft];
             const stairmasterSaved = !!getSavedExerciseEntryForCurrentSession('Stairmaster');
-            
+            const easyRunSaved = !!getSavedExerciseEntryForCurrentSession('Easy Run');
+
             let html = `
                 <div class="form-section">
                     <h4 style="font-weight: bold; margin-bottom: 12px;">💪 Kraft ${session.kraft}</h4>
@@ -1289,6 +1290,22 @@
                         <div class="exercise-inputs">
                             <input type="number" placeholder="Minuten" value="${appState.kraftExerciseInputs['Stairmaster']?.duration || ''}" onchange="updateKraftInput('Stairmaster', 'duration', this.value)">
                             <button class="btn-success" onclick="saveKraftExercise('Stairmaster')">✅</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Easy Run für Kraft A + Easy
+            if (session.session && session.session.includes('Easy')) {
+                html += `
+                    <div class="exercise-item stairmaster ${easyRunSaved ? 'completed' : ''}">
+                        <div class="exercise-header">🏃‍♂️ Easy Run</div>
+                        <div class="exercise-reps">${session.details || '5–7 km'}</div>
+                        <div class="exercise-inputs">
+                            <input type="number" step="0.1" placeholder="Distanz (km)" value="${appState.kraftExerciseInputs['Easy Run']?.distance || ''}" onchange="updateKraftInput('Easy Run', 'distance', this.value)">
+                            <input type="number" step="1" placeholder="Zeit (min)" value="${appState.kraftExerciseInputs['Easy Run']?.duration || ''}" onchange="updateKraftInput('Easy Run', 'duration', this.value)">
+                            <input type="number" step="1" placeholder="Ø HR (bpm)" value="${appState.kraftExerciseInputs['Easy Run']?.avgHR || ''}" onchange="updateKraftInput('Easy Run', 'avgHR', this.value)">
+                            <button class="btn-success" onclick="saveKraftExercise('Easy Run')">✅</button>
                         </div>
                     </div>
                 `;
@@ -1711,10 +1728,15 @@
             const input = appState.kraftExerciseInputs[exerciseName];
             const exerciseMeta = getCurrentKraftExerciseMeta(exerciseName);
             const requiresWeight = !!exerciseMeta?.weightKey || (exerciseMeta ? exerciseMeta.unit !== 'reps' : true);
-            
+
             if (exerciseName === 'Stairmaster') {
                 if (!input?.duration) {
                     alert('Minuten eingeben');
+                    return;
+                }
+            } else if (exerciseName === 'Easy Run') {
+                if (!input?.distance || !input?.duration || !input?.avgHR) {
+                    alert('Bitte Distanz, Zeit und Ø HR eingeben');
                     return;
                 }
             } else {
@@ -1734,7 +1756,7 @@
             }
 
             const key = `${appState.currentWeek}-${appState.currentDay}-kraft`;
-            const previousExerciseEntry = exerciseName === 'Stairmaster'
+            const previousExerciseEntry = (exerciseName === 'Stairmaster' || exerciseName === 'Easy Run')
                 ? null
                 : getLastKraftEntryForExercise(exerciseName, { excludeSessionKey: key });
             appState.workoutHistory[key] = normalizeKraftSessionData(appState.workoutHistory[key]);
@@ -1745,6 +1767,16 @@
                     exerciseKey: getExerciseKey(exerciseName),
                     duration: parseFloat(input.duration),
                     unit: 'min',
+                };
+                upsertKraftExerciseEntry(key, newItem);
+            } else if (exerciseName === 'Easy Run') {
+                const newItem = {
+                    exercise: exerciseName,
+                    exerciseKey: getExerciseKey(exerciseName),
+                    distance: parseFloat(input.distance),
+                    duration: parseFloat(input.duration),
+                    avgHR: parseFloat(input.avgHR),
+                    unit: 'km',
                 };
                 upsertKraftExerciseEntry(key, newItem);
             } else {
