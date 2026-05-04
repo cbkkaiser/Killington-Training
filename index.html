@@ -1189,11 +1189,20 @@
                             <div class="session-day">${session.day}</div>
                             <div class="session-name">${session.session}</div>
                             <div class="session-details">${session.details}</div>
-                            ${isCompleted && data.type === 'cardio' ? `
-                                <div style="font-size: 11px; background: #dbeafe; border-left: 3px solid #3b82f6; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
-                                    📊 ${data.distance} km in ${data.duration} min • ❤️ ${data.avgHR} bpm
-                                </div>
-                            ` : ''}
+                            ${isCompleted && data.type === 'cardio' ? (() => {
+                                // Fortschritts-Feedback berechnen
+                                const key = `${appState.currentWeek}-${session.id}`;
+                                const previousCardio = getPreviousCardioWorkout(key);
+                                const feedback = getCardioProgressFeedbackText(data, previousCardio);
+                                return `
+                                    <div style="font-size: 11px; background: #dbeafe; border-left: 3px solid #3b82f6; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
+                                        📊 ${data.distance} km in ${data.duration} min • ❤️ ${data.avgHR} bpm
+                                    </div>
+                                    <div style="font-size: 11px; background: #fef3c7; border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 4px; border-radius: 4px; white-space: pre-line;">
+                                        ${feedback}
+                                    </div>
+                                `;
+                            })() : ''}
                             ${isCompleted && session.type === 'kraft' ? `
                                 <div style="font-size: 11px; background: #fef08a; border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 8px; border-radius: 4px;">
                                     ✅ ${kraftProgress.done}/${kraftProgress.total} Übungen abgeschlossen
